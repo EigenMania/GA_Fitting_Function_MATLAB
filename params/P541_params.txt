@@ -1,0 +1,54 @@
+= P541 ===============
+weight: 62.0 kg
+height: 1.7 m
+gender: female
+= INITIALIZATION =====
+x0 = {34.2278, 0.2239, 0.0671, 0.3024, 0.0546, 0.0301}
+= PARAMETER FIT  =====
+float param[] = {32.5164, 0.2127, 0.0638, 0.3176, 0.0574, 0.0316};
+
+= P541 ===============
+weight: 62.0 kg
+height: 1.7 m
+gender: female
+= INITIALIZATION =====
+x0 = {34.2278, 0.2239, 0.0671, 0.3024, 0.0546, 0.0301}
+= PARAMETER FIT  =====
+float param[] = {30.8050, 0.2015, 0.0604, 0.3327, 0.0601, 0.0331};
+
+= P541 ===============
+weight: 62.0 kg
+height: 1.7 m
+gender: female
+= INITIALIZATION =====
+x0 = {34.2278, 0.2239, 0.0671, 0.3024, 0.0546, 0.0301}
+= PARAMETER FIT  =====
+float param[] = {29.0936, 0.1903, 0.0571, 0.3478, 0.0628, 0.0346};
+
+= P541 ===============
+weight: 62.0 kg
+height: 1.7 m
+gender: female
+= INITIALIZATION =====
+x0 = {34.2278, 0.2239, 0.0671, 0.3024, 0.0546, 0.0301}
+= PARAMETER FIT  =====
+float param[] = {27.3822, 0.1791, 0.0537, 0.3629, 0.0626, 0.0361};
+
+= P541 ===============
+weight: 62.0 kg
+height: 1.7 m
+gender: female
+= INITIALIZATION =====
+x0 = {34.2278, 0.2239, 0.0671, 0.3024, 0.0546, 0.0301}
+= PARAMETER FIT  =====
+float param[] = {17.1139, 0.2533, 0.0336, 0.4537, 0.0820, 0.0409};
+
+= P541 ===============
+weight: 62.0 kg
+height: 1.7 m
+gender: female
+= INITIALIZATION =====
+x0 = {34.2278, 0.2239, 0.0671, 0.3024, 0.0546, 0.0301}
+= PARAMETER FIT  =====
+float param[] = {27.3822, 0.1791, 0.0537, 0.3629, 0.0626, 0.0361};
+
