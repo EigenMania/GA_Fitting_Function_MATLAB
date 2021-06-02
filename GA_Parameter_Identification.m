@@ -10,6 +10,13 @@ weight = 66; % kg
 gender = 'male'; % 'female','male'
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%pID = "P490";
+%height = 1.63; %m
+%weight = 58; % kg
+%gender = 'female'; % 'female','male'
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 fname = "./logs/"+pID+"/"+pID+"_IDF.txt";
 
 % Note: Since there is a tab delimiter at the end of each line, an extra
@@ -26,32 +33,18 @@ clock_frequency = 1000; % Hz
 sampling_frequency = 200; % Hz
 ts = clock_frequency/sampling_frequency;
 elevationPeriod = 5000/ts; % ms
-restPeriod = 15000/ts; % ms
-dLength = restPeriod-5000/ts; %length of data extraction (last 10 s of rest)
-cLength= elevationPeriod + restPeriod; % length of one cycle
-last = find(round(data.Reference)==90); last = last(end);
-first = last-3*cLength; 
-first = 1;%first(1);
-
-cutVal = last;
-% For each rest position 30, 60, 90
-rest90 = data(cutVal-dLength:cutVal,:);
-cutVal = cutVal - cLength;
-rest60 = data(cutVal-dLength:cutVal,:);
-cutVal = cutVal - cLength;
-rest30 = data(cutVal-dLength:cutVal,:);
 
 %% FIT Data
 figure; hold on; grid on;
 yyaxis left;
-plot(data.Time(first:last),data.Force1(first:last),'color',[.8 .6 .8],'linewidth',1.1)
+plot(data.Time,data.Force1,'color',[.8 .6 .8],'linewidth',1.1)
 
-plot(data.Time(first:last),data.Force2(first:last),'color',[.7 .7 .9],'linewidth',1.1)
+plot(data.Time,data.Force2,'color',[.7 .7 .9],'linewidth',1.1)
 ylabel('Force (N)');
 
 yyaxis right;
-plot(data.Time(first:last),data.Reference(first:last),'k')
-plot(data.Time(first:last),data.Elevation(first:last),'color',[.7 .3 .4],'linewidth',1.3,'linestyle','-')
+plot(data.Time,data.Reference,'k')
+plot(data.Time,data.Elevation,'color',[.7 .3 .4],'linewidth',1.3,'linestyle','-')
 ylabel('Elevation Angle (°)');
 
 legend('Force1','Force2','Reference','Elevation','location','best');
@@ -59,19 +52,22 @@ ylim([0 100])
 xlabel('Time (s)')
 title('Collected Data for Parameter Estimation')
 
+%% Elevation Speed
+
+
 %% Force Correlations
 %{
 % This scatter plot also does a good job of showing that the two cable
 % tension forces are highly correlated (they tend to make a fairly straight
 % line when plotted against each other).
 figure; hold on; grid on;
-plot(data.Force1(first:last), data.Force2(first:last),'b.');
+plot(data.Force1, data.Force2,'b.');
 axis equal;
 xlabel('Force1 (N)');
 ylabel('Force2 (N)');
 title('Scatter Plot of Forces');
 
-[xcorr_forces, lags_forces] = xcorr(data.Force1(first:last), data.Force2(first:last),'normalized');
+[xcorr_forces, lags_forces] = xcorr(data.Force1, data.Force2,'normalized');
 lags_forces = lags_forces * ts / 1000; % from milliseconds to seconds
 n_downsample = 500; % i.e. every 500 points will result in a spacing of 2.5s with ts = 5 
 
@@ -88,9 +84,9 @@ stem(downsample(lags_forces,n_downsample), downsample(xcorr_forces,n_downsample)
 % force = [rest30.Force1;rest60.Force1;rest90.Force1];
 
 % USE ALL DATA - DO THIS FOR NOW
-angle = deg2rad(data.Elevation(first:last));
-reference = data.Reference(first:last);
-force = data.Force1(first:last);
+angle = deg2rad(data.Elevation);
+reference = data.Reference;
+force = data.Force1;
 
 % ASSISTIVE FORCE MODEL
 % x : [a, b1, b2, c, d1, d2]
@@ -214,7 +210,6 @@ fclose(fileID);
 T_g = @(theta)sum((lengths*[0 1 1;0 0 1;0 0 0]+centers).*mass)'*9.81*sin(theta);
 
 cutVal = find(round(data.Reference)==90);
-first = cutVal-3*cLength;
 %th = 0:1:160;
 th = linspace(0,180,200);
 T_mod = T_g(deg2rad(th));
