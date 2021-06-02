@@ -22,19 +22,58 @@ fname = "./logs/"+pID+"/"+pID+"_IDF.txt";
 % Note: Since there is a tab delimiter at the end of each line, an extra
 % column of data was being created. These options ignore that column.
 opts = detectImportOptions(fname);
-opts.ExtraColumnsRule = 'ignore';   %ignore extra columns created by extra delimiters at the end of lines
+opts.ExtraColumnsRule = 'ignore'; % ignore extra columns created by extra delimiters at the end of lines
 
-data = readtable(fname, opts);
-data.Properties.VariableNames = {'Time' 'Elevation' 'Reference' 'Force1' 'Force2' 'Assistance' 'Motor'};
+data_raw = readtable(fname, opts);
+data_raw.Properties.VariableNames = {'Time' 'Elevation' 'Reference' 'Force1' 'Force2' 'Assistance' 'Motor'};
 
-%% Extract data
-% motor stops when sequence finishes >> extract data from end of array
+%% Fill Missing Data w/ Linear Interpolation
 clock_frequency = 1000; % Hz
 sampling_frequency = 200; % Hz
-ts = clock_frequency/sampling_frequency;
-elevationPeriod = 5000/ts; % ms
+ts = clock_frequency/sampling_frequency; % ms
+
+% Generate a new time vector without missing elements.
+% This method assumes that we are trying to fill ALL gaps in the data.
+time_filled = [data_raw.Time(1):ts:data_raw.Time(end)]';
+[~, idx] = intersect(time_filled, data_raw.Time, 'stable');
+time_filled = time_filled / 1000; % convert to seconds
+
+% Populate with known data and fill missing spots with interpolations.
+elevation_filled = nan(size(time_filled));
+elevation_filled(idx) = data_raw.Elevation;
+elevation_filled = fillmissing(elevation_filled, 'pchip', 'SamplePoints', time_filled);
+
+reference_filled = nan(size(time_filled));
+reference_filled(idx) = data_raw.Reference;
+reference_filled = fillmissing(reference_filled, 'pchip', 'SamplePoints', time_filled);
+
+force1_filled = nan(size(time_filled));
+force1_filled(idx) = data_raw.Force1;
+force1_filled = fillmissing(force1_filled, 'pchip', 'SamplePoints', time_filled);
+
+force2_filled = nan(size(time_filled));
+force2_filled(idx) = data_raw.Force2;
+force2_filled = fillmissing(force2_filled, 'pchip', 'SamplePoints', time_filled);
+
+assistance_filled = nan(size(time_filled));
+assistance_filled(idx) = data_raw.Assistance;
+assistance_filled = fillmissing(assistance_filled, 'pchip', 'SamplePoints', time_filled);
+
+motor_filled = nan(size(time_filled));
+motor_filled(idx) = data_raw.Motor;
+motor_filled = fillmissing(motor_filled, 'pchip', 'SamplePoints', time_filled);
+
+data_filled = array2table([time_filled elevation_filled, reference_filled, force1_filled, force2_filled, assistance_filled, motor_filled]);
+data_filled.Properties.VariableNames = data_raw.Properties.VariableNames; % copy column headers from original table
+
+figure; hold on; grid on;
+plot(time_filled, elevation_filled, 'r.');
+
+%% Smooth Derivative of Elevation
 
 %% FIT Data
+data = data_filled;
+
 figure; hold on; grid on;
 yyaxis left;
 plot(data.Time,data.Force1,'color',[.8 .6 .8],'linewidth',1.1)
