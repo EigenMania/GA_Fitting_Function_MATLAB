@@ -1,0 +1,20 @@
+- Columns: Time stamp | elevation angle in °  | angle reference in ° | load cell 1 in N (controller input) | load cell 2 in N (in series with spring) | assistance level (here not relevant) | motor state (1:on/0:off)
+- Spring stiffness: approx. 2000 N/m
+- The Amp (I think it’s the amp) of load cell 2 has a bug, so sometimes the zero reference jumps when we switch it on. Therefore, consider subtracting the idle (0°, beginning) value.
+- Participants w/o impairments:
+ID          sex         weight (kg)  height (m)
+
+'P946'      'm'          66           1.70
+'P623'      'f'          49           1.57
+'P890'      'f'          58           1.60
+'P860'      'f'          65           1.60
+'P914'      'm'          60           1.72
+'P513'      'm'          65           1.81
+'P818'      'm'          76           1.87
+'P541'      'f'          62           1.70
+'P634'      'm'          74           1.77
+'P490'      'f'          58           1.63
+
+- Participants w/ impairments:
+'P357'      'm'          66           1.73
+'P639'      'm'          90           1.89
