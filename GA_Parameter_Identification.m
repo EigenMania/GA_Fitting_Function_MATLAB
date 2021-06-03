@@ -2,44 +2,55 @@
 clear all; close all; clc;
 addpath(genpath('../'));
 
-%% Subject
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Subject Data
+subject_data = readtable('./logs/subject_data.csv');
 pID = "P946";
-height = 1.70; %m
-weight = 66; % kg
-gender = 'male'; % 'female','male'
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+patient_index = find(strcmp(subject_data.ID, pID));
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%pID = "P490";
-%height = 1.63; %m
-%weight = 58; % kg
-%gender = 'female'; % 'female','male'
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%pID = "P513";
-%height = 1.81; %m
-%weight = 65; % kg
-%gender = 'male'; % 'female','male'
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if isempty(patient_index)
+    error("Patient ID was not found!");
+    return;
+else
+    sex = subject_data.sex{patient_index}; % char, 'm' or 'f'
+    weight = subject_data.weight(patient_index); % double
+    height = subject_data.height(patient_index); % double
+end
 
 fname = "./logs/"+pID+"/"+pID+"_IDF.txt";
 
 % Note: Since there is a tab delimiter at the end of each line, an extra
 % column of data was being created. These options ignore that column.
+% In the future, we should write out the data with comma delimiters (not
+% whitespace, especially tabs...) and have newline ends, not delimiter
+% ends.
 opts = detectImportOptions(fname);
 opts.ExtraColumnsRule = 'ignore'; % ignore extra columns created by extra delimiters at the end of lines
 
 data_raw = readtable(fname, opts);
 data_raw.Properties.VariableNames = {'Time' 'Elevation' 'Reference' 'Force1' 'Force2' 'Assistance' 'Motor'};
 
-%% Force
-
-%% Fill Missing Data w/ Linear Interpolation
+% Hard coded parameters related to data acquisition frequency
 clock_frequency = 1000; % Hz
 sampling_frequency = 200; % Hz
 ts = clock_frequency/sampling_frequency; % ms
+
+%% Force DC Offset
+% Force2 tends to have a DC offset, and sometimes it is negative (which
+% does not make much sense). For now we just remove this DC offset (though
+% in the future we need to take care of modelling cable pre-tension).
+
+% For now I will implement the offset computation naively by just averaging
+% some fixed portion of the data. This assumes that the system is at rest
+% longer than the window of data that is used to compute the DC offset.
+dc_window_len_sec = 5;
+dc_window_n = floor(dc_window_len_sec * 1000 / ts);
+data_raw.Force1 = data_raw.Force1 - mean(data_raw.Force1(1:dc_window_n));
+data_raw.Force2 = data_raw.Force2 - mean(data_raw.Force2(1:dc_window_n));
+
+% Add Force2 into Force1 to see what happens ;)
+%data_raw.Force1 = data_raw.Force1 + data_raw.Force2;
+
+%% Fill Missing Data w/ Linear Interpolation
 
 % Generate a new time vector without missing elements.
 % This method assumes that we are trying to fill ALL gaps in the data.
@@ -123,6 +134,7 @@ xlabel('Time (s)')
 title('Collected Data for Parameter Estimation')
 
 %% Force Correlations
+%{
 % This scatter plot also does a good job of showing that the two cable
 % tension forces are highly correlated (they tend to make a fairly straight
 % line when plotted against each other).
@@ -143,8 +155,8 @@ stem(downsample(lags_forces,n_downsample), downsample(xcorr_forces,n_downsample)
 xlabel('Signal Lag (s)');
 ylabel('Normalized Signal Cross-Correlation');
 title('Cable Tension Cross-Correlation Stem Plot');
+%}
 
-return;
 %% Non-linear curve fitting
 % Here we can pick between the raw data, the filled data, and the slow
 % data.
@@ -162,7 +174,7 @@ F = @(x,theta) (x(1)*sin(theta))  ./  sqrt(1-(x(2)+x(3)*cos(theta+x(4))).^2 ./ (
 
 % ANTHROPOMETRY
 % weights of body segments
-if isequal(gender, 'female') % female
+if isequal(sex, 'f') % female
     % section lengths
     % l_u, l_f, l_h
     lengths = [0.159 0.152 0.098]*height;
@@ -175,7 +187,7 @@ if isequal(gender, 'female') % female
     % section mass
     % m_u, m_f, m_h
     mass = [0.0255 0.0138 0.0056]*weight;
-else % 'male', male
+elseif isequal(sex, 'm') % 'm', male
     % section lengths
     % l_u, l_f, l_h
     lengths = [0.162 0.155 0.108]*height;
@@ -188,6 +200,9 @@ else % 'male', male
     % section mass
     % m_u, m_f, m_h
     mass = [0.0271 0.0162 0.0061]*weight;
+else
+    error("Check participant sex!");
+    return;
 end
 
 % MYOSHIRT GEOMETRY
@@ -231,11 +246,11 @@ lb_alt = x0_alt * 0.9;
 ub_alt = x0_alt * 1.1;
 
 % nonlinear lsq fit
-myfit = lsqcurvefit(F,x0,angle,force,lb,ub);
-%myfit = lsqcurvefit(F,x0,angle,force); % without bounding
+%myfit = lsqcurvefit(F,x0,angle,force,lb,ub);
+myfit = lsqcurvefit(F,x0,angle,force); % without bounding
 
-myfit_alt = lsqcurvefit(F_alt,x0_alt,angle,force,lb_alt,ub_alt);
-%myfit_alt = lsqcurvefit(F_alt,x0_alt,angle,force); % without bounding
+%myfit_alt = lsqcurvefit(F_alt,x0_alt,angle,force,lb_alt,ub_alt);
+myfit_alt = lsqcurvefit(F_alt,x0_alt,angle,force); % without bounding
 
 fprintf("\n           x0 = {")
 fprintf("%.4f, ",x0(1:end-1))
