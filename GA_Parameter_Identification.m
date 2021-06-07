@@ -4,7 +4,7 @@ addpath(genpath('../'));
 
 %% Subject Data
 subject_data = readtable('./logs/subject_data.csv');
-pID = "P946";
+pID = "P818";
 patient_index = find(strcmp(subject_data.ID, pID));
 
 if isempty(patient_index)
@@ -51,39 +51,20 @@ data_raw.Force2 = data_raw.Force2 - mean(data_raw.Force2(1:dc_window_n));
 %data_raw.Force1 = data_raw.Force1 + data_raw.Force2;
 
 %% Fill Missing Data w/ Linear Interpolation
-
 % Generate a new time vector without missing elements.
 % This method assumes that we are trying to fill ALL gaps in the data.
 time_filled = [data_raw.Time(1):ts:data_raw.Time(end)]';
-[~, idx] = intersect(time_filled, data_raw.Time, 'stable');
+
+elevation_filled_ts = resample(timeseries(data_raw.Elevation, data_raw.Time), time_filled, 'linear');
+reference_filled_ts = resample(timeseries(data_raw.Reference, data_raw.Time), time_filled, 'linear');
+force1_filled_ts = resample(timeseries(data_raw.Force1, data_raw.Time), time_filled, 'linear');
+force2_filled_ts = resample(timeseries(data_raw.Force2, data_raw.Time), time_filled, 'linear');
+assistance_filled_ts = resample(timeseries(data_raw.Assistance, data_raw.Time), time_filled, 'linear');
+motor_filled_ts = resample(timeseries(data_raw.Motor, data_raw.Time), time_filled, 'zoh');
+
 time_filled = time_filled / 1000; % convert to seconds
 
-% Populate with known data and fill missing spots with interpolations.
-elevation_filled = nan(size(time_filled));
-elevation_filled(idx) = data_raw.Elevation;
-elevation_filled = fillmissing(elevation_filled, 'pchip', 'SamplePoints', time_filled);
-
-reference_filled = nan(size(time_filled));
-reference_filled(idx) = data_raw.Reference;
-reference_filled = fillmissing(reference_filled, 'pchip', 'SamplePoints', time_filled);
-
-force1_filled = nan(size(time_filled));
-force1_filled(idx) = data_raw.Force1;
-force1_filled = fillmissing(force1_filled, 'pchip', 'SamplePoints', time_filled);
-
-force2_filled = nan(size(time_filled));
-force2_filled(idx) = data_raw.Force2;
-force2_filled = fillmissing(force2_filled, 'pchip', 'SamplePoints', time_filled);
-
-assistance_filled = nan(size(time_filled));
-assistance_filled(idx) = data_raw.Assistance;
-assistance_filled = fillmissing(assistance_filled, 'pchip', 'SamplePoints', time_filled);
-
-motor_filled = nan(size(time_filled));
-motor_filled(idx) = data_raw.Motor;
-motor_filled = fillmissing(motor_filled, 'pchip', 'SamplePoints', time_filled);
-
-data_filled = array2table([time_filled elevation_filled, reference_filled, force1_filled, force2_filled, assistance_filled, motor_filled]);
+data_filled = array2table([time_filled elevation_filled_ts.data, reference_filled_ts.data, force1_filled_ts.data, force2_filled_ts.data, assistance_filled_ts.data, motor_filled_ts.data]);
 data_filled.Properties.VariableNames = data_raw.Properties.VariableNames; % copy column headers from original table
 
 %% Smoothened Derivative of Elevation
@@ -268,29 +249,9 @@ fprintf("\nfloat param[] = {")
 fprintf("%.4f, ",myfit_alt(1:end-1))
 fprintf("%.4f};\n",myfit_alt(end))
 %%
-% SAVE TO FILE
-%{
-filesave = 'params/'+pID+'_params.txt';
-fileID = fopen(filesave,'a+');
-fprintf(fileID,'= %s ===============\n',pID);
-fprintf(fileID,'weight: %.1f kg\n',weight);
-fprintf(fileID,'height: %.1f m\n',height);
-fprintf(fileID,'gender: %s\n',gender);
-fprintf(fileID,'= INITIALIZATION =====\n');
-fprintf(fileID,"x0 = {");
-fprintf(fileID,"%.4f, ",x0(1:end-1));
-fprintf(fileID,"%.4f}\n",x0(end));
-fprintf(fileID,'= PARAMETER FIT  =====\n');
-fprintf(fileID,"float param[] = {");
-fprintf(fileID,"%.4f, ",myfit(1:end-1));
-fprintf(fileID,"%.4f};\n\n",myfit(end));
-fclose(fileID);
-%%
-%}
-% ANTHROPOMETRY GRAVITY TORQUE MODEL
+% ANTHROPOMETRY GRAVITY TORQUE MODEL (Fully extended arm model)
 T_g = @(theta)sum((lengths*[0 1 1;0 0 1;0 0 0]+centers).*mass)'*9.81*sin(theta);
 
-cutVal = find(round(data.Reference)==90);
 %th = 0:1:160;
 th = linspace(0,180,200);
 T_mod = T_g(deg2rad(th));
@@ -300,30 +261,26 @@ F_mod_alt = F_alt(x0_alt,deg2rad(th));
 F_fit = F(myfit,deg2rad(th));
 F_fit_alt = F_alt(myfit_alt,deg2rad(th));
 
+% FORCE1
 figure; hold on; grid on;
-% FORCE
-%plot(data.Elevation(first:last),data.Force1(first:last),'.','color',[.8 .6 .8]);
-scatter(rad2deg(angle),force,3,'markerfacecolor',[.8 .6 .8],'markeredgecolor','none','markerfacealpha',0.5);
-plot(th,F_mod,'--','color',[.2 .5 .6],'linewidth',1.3);
-%plot(th,F_mod_alt,'--','color',[.2 .5 .2],'linewidth',1.3);
 
+% Raw data of angle vs cable tension
+scatter(rad2deg(angle),force,3,'markerfacecolor',[.8 .6 .8],'markeredgecolor','none','markerfacealpha',0.5);
+
+% 6-Parameter model used in Mobility study
+plot(th,F_mod,'--','color',[.2 .5 .6],'linewidth',1.3);
 plot(th,F_fit,'color',[.6 .3 .4],'linewidth',1.3);
-plot(th,F_fit_alt,'color',[.4 .3 .1],'linewidth',1.3);
-%text(20,F_mod(60),'Initialization','color',[.2 .5 .6])
-%text(30,F_fit(60),'Fitted','color',[.6 .3 .4])
-%text(40,force(ceil(length(force)/8)),'Data','color',[.8 .6 .8])
+
+% Alternative 4-parameter model (not used in study, retains vertical
+% discontinuity)
+%plot(th,F_mod_alt,'--','color',[.2 .5 .2],'linewidth',1.3);
+%plot(th,F_fit_alt,'color',[.4 .3 .1],'linewidth',1.3);
 
 legend('Data', 'Initial Model', 'Model Fit', 'location', 'best');
 %legend('Data', 'Initial Model', 'Initial Alt. Model', 'Model Fit', 'Alt. Model Fit', 'location', 'best');
 
 xlim([0 180]);
 ylim([0 200]);
-ylabel('Force (N)')
+ylabel('Force1 (N)')
 xlabel('Elevation (°)')
 title('Data Fit')
-
-% TORQUE
-% plot(data.Elevation(first:last),data.Force1(first:last).*l_cd0.*sind(data.Elevation(first:last)),'.','color',[.8 .6 .8]);
-% plot(th,F_mod.*l_cd0.*sind(th),'color',[.6 .3 .4]);
-% plot(th,F_fit.*l_cd0.*sind(th),'color',[.2 .5 .6]);
-% plot(th,T_mod,'color','k');
