@@ -4,7 +4,7 @@ addpath(genpath('../'));
 
 %% Subject Data
 subject_data = readtable('./logs/subject_data.csv');
-pID = "P818";
+pID = "P946";
 patient_index = find(strcmp(subject_data.ID, pID));
 
 if isempty(patient_index)
