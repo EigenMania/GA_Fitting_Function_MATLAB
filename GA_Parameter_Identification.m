@@ -4,7 +4,7 @@ addpath(genpath('../'));
 
 %% Subject Data
 subject_data = readtable('./logs/subject_data.csv');
-pID = "P946";
+pID = "P890";
 patient_index = find(strcmp(subject_data.ID, pID));
 
 if isempty(patient_index)
@@ -49,6 +49,18 @@ data_raw.Force2 = data_raw.Force2 - mean(data_raw.Force2(1:dc_window_n));
 
 % Add Force2 into Force1 to see what happens ;)
 %data_raw.Force1 = data_raw.Force1 + data_raw.Force2;
+
+%% Spike Filtering
+data_spike_filtered = elevation_spike_removal(data_raw);
+% Optionally see the effect of filtering out the spikes.
+%{
+figure; hold on; grid on;
+plot(data_raw.Time, data_raw.Elevation, 'b');
+plot(data_spike_filtered.Time, data_spike_filtered.Elevation, 'r');
+%}
+
+% Overwrite raw data with spike filtered data.
+data_raw = data_spike_filtered;
 
 %% Fill Missing Data w/ Linear Interpolation
 % Generate a new time vector without missing elements.
@@ -281,6 +293,35 @@ legend('Data', 'Initial Model', 'Model Fit', 'location', 'best');
 
 xlim([0 180]);
 ylim([0 200]);
-ylabel('Force1 (N)')
-xlabel('Elevation (°)')
-title('Data Fit')
+ylabel('Force1 (N)');
+xlabel('Elevation (°)');
+title('Data Fit');
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                            Helper Functions                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% The IMU is known for having a strange problem where the value jumps very
+% erratically. This could either be a problem with I2C transmission 
+% or how we convert the unit quaternion to elevation angle. Spike filtering
+% can be done with the MATLAB function "medfilt1", but this does not work
+% super robustly here since the peaks are sometimes so close together. This
+% function iteratievly removes points where there is a large positive 
+% relative change in the IMU angle.
+function [data_spike_filtered] = elevation_spike_removal(data_original)
+    data_spike_filtered = data_original;
+    data_current = data_original;
+    length_ind_remove = Inf;
+    iters = 0;
+    while (length_ind_remove > 0 && iters < 5)
+        th = data_current.Elevation;
+        d_th = diff(th);
+        rel_change = d_th ./ th(1:end-1);
+        ind_remove = find(rel_change > 0.1) + 1;
+        length_ind_remove = length(ind_remove);
+        
+        data_current(ind_remove,:) = [];
+        iters = iters + 1;
+    end
+    data_spike_filtered = data_current;
+end
