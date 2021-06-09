@@ -4,7 +4,7 @@ addpath(genpath('../'));
 
 %% Subject Data
 subject_data = readtable('./logs/subject_data.csv');
-pID = "P890";
+pID = "P946";
 patient_index = find(strcmp(subject_data.ID, pID));
 
 if isempty(patient_index)
@@ -53,11 +53,14 @@ data_raw.Force2 = data_raw.Force2 - mean(data_raw.Force2(1:dc_window_n));
 %% Spike Filtering
 data_spike_filtered = elevation_spike_removal(data_raw);
 % Optionally see the effect of filtering out the spikes.
-%{
 figure; hold on; grid on;
-plot(data_raw.Time, data_raw.Elevation, 'b');
-plot(data_spike_filtered.Time, data_spike_filtered.Elevation, 'r');
-%}
+plot(data_raw.Time / 1000, data_raw.Elevation, 'b');
+plot(data_spike_filtered.Time / 1000, data_spike_filtered.Elevation, 'r');
+xlabel('Time (s)');
+ylabel('Elevation Angle (°)');
+title('Spike Filtering of Elevation Angle');
+legend('Raw Data', 'Spikes Filtered', 'location', 'best');
+%return;
 
 % Overwrite raw data with spike filtered data.
 data_raw = data_spike_filtered;
@@ -97,7 +100,7 @@ ylabel('Elevation Angle (deg)');
 yyaxis right;
 plot(data_filled.Time, dx(:,2) ,'m-');
 ylim([-20 20])
-ylabel('Elevation Angular Speed (deg/s)');
+ylabel('Elevation Angular Speed (°/s)');
 
 xlabel('Time (s)');
 
@@ -106,6 +109,7 @@ ind_slow = find(abs(dx(:,2)) < d_th_elev_thresh);
 
 % This table only contains the data when the arm is moving slowly.
 data_slow = data_filled(ind_slow,:);
+writetable(data_slow, pID);
 
 %% FIT Data
 % Visualize with filled data
@@ -307,17 +311,17 @@ title('Data Fit');
 % can be done with the MATLAB function "medfilt1", but this does not work
 % super robustly here since the peaks are sometimes so close together. This
 % function iteratievly removes points where there is a large positive 
-% relative change in the IMU angle.
+% relative change in the IMU angle. Not implemented for negative spikes.
 function [data_spike_filtered] = elevation_spike_removal(data_original)
     data_spike_filtered = data_original;
     data_current = data_original;
     length_ind_remove = Inf;
     iters = 0;
-    while (length_ind_remove > 0 && iters < 5)
+    while (length_ind_remove > 0 && iters < 15)
         th = data_current.Elevation;
         d_th = diff(th);
         rel_change = d_th ./ th(1:end-1);
-        ind_remove = find(rel_change > 0.1) + 1;
+        ind_remove = find(rel_change > 0.05 & d_th > 0.25) + 1;
         length_ind_remove = length(ind_remove);
         
         data_current(ind_remove,:) = [];
