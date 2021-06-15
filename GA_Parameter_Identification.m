@@ -4,7 +4,7 @@ addpath(genpath('../'));
 
 %% Subject Data
 subject_data = readtable('./logs/subject_data.csv');
-pID = "P946";
+pID = "P541";
 patient_index = find(strcmp(subject_data.ID, pID));
 
 if isempty(patient_index)
@@ -63,7 +63,7 @@ legend('Raw Data', 'Spikes Filtered', 'location', 'best');
 %return;
 
 % Overwrite raw data with spike filtered data.
-data_raw = data_spike_filtered;
+%data_raw = data_spike_filtered;
 
 %% Fill Missing Data w/ Linear Interpolation
 % Generate a new time vector without missing elements.
@@ -157,9 +157,9 @@ title('Cable Tension Cross-Correlation Stem Plot');
 %% Non-linear curve fitting
 % Here we can pick between the raw data, the filled data, and the slow
 % data.
-%data = data_raw;
+data = data_raw;
 %data = data_filled;
-data = data_slow;
+%data = data_slow;
 
 % Copy data from table
 angle = deg2rad(data.Elevation);
@@ -243,11 +243,11 @@ lb_alt = x0_alt * 0.9;
 ub_alt = x0_alt * 1.1;
 
 % nonlinear lsq fit
-%myfit = lsqcurvefit(F,x0,angle,force,lb,ub);
-myfit = lsqcurvefit(F,x0,angle,force); % without bounding
+myfit = lsqcurvefit(F,x0,angle,force,lb,ub);
+%myfit = lsqcurvefit(F,x0,angle,force); % without bounding
 
-%myfit_alt = lsqcurvefit(F_alt,x0_alt,angle,force,lb_alt,ub_alt);
-myfit_alt = lsqcurvefit(F_alt,x0_alt,angle,force); % without bounding
+myfit_alt = lsqcurvefit(F_alt,x0_alt,angle,force,lb_alt,ub_alt);
+%myfit_alt = lsqcurvefit(F_alt,x0_alt,angle,force); % without bounding
 
 fprintf("\n           x0 = {")
 fprintf("%.4f, ",x0(1:end-1))
@@ -263,12 +263,14 @@ fprintf("%.4f}\n",x0_alt(end))
 
 fprintf("\nfloat param[] = {")
 fprintf("%.4f, ",myfit_alt(1:end-1))
-fprintf("%.4f};\n",myfit_alt(end))
-%%
-% ANTHROPOMETRY GRAVITY TORQUE MODEL (Fully extended arm model)
-T_g = @(theta)sum((lengths*[0 1 1;0 0 1;0 0 0]+centers).*mass)'*9.81*sin(theta);
+fprintf("%.4f};\n\n",myfit_alt(end))
 
-%th = 0:1:160;
+%% ANTHROPOMETRY GRAVITY TORQUE MODEL 
+% Fully extended arm model
+T_g_90 = sum((lengths * [0 1 1 ; 0 0 1 ; 0 0 0] + centers) .* mass) * 9.81;
+T_g = @(theta) T_g_90 * sin(theta);
+fprintf('Gravity Torque @ 90 deg: %.4f\n', T_g_90)
+
 th = linspace(0,180,200);
 T_mod = T_g(deg2rad(th));
 F_mod = F(x0,deg2rad(th));
@@ -310,7 +312,7 @@ title('Data Fit');
 % or how we convert the unit quaternion to elevation angle. Spike filtering
 % can be done with the MATLAB function "medfilt1", but this does not work
 % super robustly here since the peaks are sometimes so close together. This
-% function iteratievly removes points where there is a large positive 
+% function iteratively removes points where there is a large positive 
 % relative change in the IMU angle. Not implemented for negative spikes.
 function [data_spike_filtered] = elevation_spike_removal(data_original)
     data_spike_filtered = data_original;
